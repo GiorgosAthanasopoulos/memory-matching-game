@@ -1,6 +1,11 @@
 #include "memory_matching_game.hpp"
+#include "asset_manager.hpp"
+#include "card.hpp"
+#include "card_type.hpp"
 #include "config.hpp"
 #include "util.hpp"
+#include <cmath>
+#include <ctime>
 #include <raylib.h>
 
 MemoryMatchingGame::MemoryMatchingGame() {
@@ -13,7 +18,7 @@ bool MemoryMatchingGame::ShouldExit() { return WindowShouldClose(); }
 
 void MemoryMatchingGame::Resize(Vector2 old, Vector2 neew) {
   for (size_t i = 0; i < cards.size(); ++i) {
-    cards[i].Resize(old, neew);
+    cards[i]->Resize(old, neew);
   }
   winSize = neew;
 }
@@ -53,39 +58,59 @@ void MemoryMatchingGame::Draw() {
   DrawTexturePro(am.bg, {0, 0, (float)am.bg.width, (float)am.bg.height},
                  {0, 0, winSize.x, winSize.y}, {0, 0}, 0, WHITE);
   for (size_t i = 0; i < cards.size(); ++i) {
-    cards[i].Draw(GetTextureFromCardType(cards[i].GetCardType()));
+    cards[i]->Draw(GetTextureFromCardType(cards[i]->GetCardType()));
   }
   DrawTexturePro(
       am.cursor, {0, 0, (float)am.cursor.width, (float)am.cursor.height},
       {(float)GetMouseX(), (float)GetMouseY(), CURSOR_SIZE.x, CURSOR_SIZE.y},
       {0, 0}, 0, WHITE);
+
+  float timeRemaining = gameTimer / GAME_TIME;
+  DrawRectangle(0, winSize.y - TIMER_H, timeRemaining * winSize.x, TIMER_H,
+                TIMER_COLOR);
 }
 
-MemoryMatchingGame::~MemoryMatchingGame() {}
+MemoryMatchingGame::~MemoryMatchingGame() { DeleteCards(); }
 
 void MemoryMatchingGame::Restart() {
   paused = false;
   won = false;
   lost = false;
   gameTimer = GAME_TIME;
-  // TODO: regenerate deck
+
+  pendingUnflipIndices.clear();
+  unflipTimer = 0;
+  isWaitingToUnflip = false;
+
+  DeleteCards();
+  for (int i = 0; i < TOTAL_CARDS; ++i) {
+    int indexX = i % (int)DECK_SIZE_X;
+    int indexY = i / DECK_SIZE_X;
+    Vector2 cardSize = CalculateSize({CARD_SIZE_RATIO_X, CARD_SIZE_RATIO_Y});
+    Vector2 pos = {GetWindowWidth() / 8 +
+                       (GetWindowWidth() / 100 + cardSize.x) * indexX,
+                   GetWindowHeight() / 18 +
+                       (GetWindowHeight() / 15 + cardSize.y) * indexY};
+    CardType ct = GetRandomCardType();
+    cards.push_back(new Card(pos, ct));
+  }
 }
 
 Texture2D MemoryMatchingGame::GetTextureFromCardType(CardType ct) {
   switch (ct) {
-  case A:
+  case CardType::A:
     return am.card1;
-  case B:
+  case CardType::B:
     return am.card2;
-  case C:
+  case CardType::C:
     return am.card3;
-  case D:
+  case CardType::D:
     return am.card4;
-  case E:
+  case CardType::E:
     return am.card5;
-  case F:
+  case CardType::F:
     return am.card6;
-  case G:
+  case CardType::G:
     return am.card7;
   default:
     return am.card1;
@@ -110,28 +135,60 @@ void MemoryMatchingGame::HandlePaused() {
 }
 
 void MemoryMatchingGame::HandleCards() {
+  // Update all cards
   for (size_t i = 0; i < cards.size(); ++i) {
-    cards[i].Update();
+    cards[i]->Update();
+  }
 
+  if (isWaitingToUnflip) {
+    unflipTimer -= GetFrameTime();
+    if (unflipTimer <= 0) {
+      UnflipCards(pendingUnflipIndices);
+      pendingUnflipIndices.clear();
+      isWaitingToUnflip = false;
+    }
+    return;
+  }
+
+  for (size_t i = 0; i < cards.size(); ++i) {
     if (IsMouseButtonPressed(MOUSE_BUTTON_FLIP_CARD) &&
-        MouseHovered(cards[i].GetRec())) {
-      cards[i].Flip();
+        MouseHovered(cards[i]->GetRec()) && !cards[i]->GetFlipped()) {
+      cards[i]->Flip();
 
       std::vector<int> flippedIndices = GetFlippedCards();
-      if (CheckFlippedCards(flippedIndices)) {
-        DeleteFlippedCards(flippedIndices);
-        if (cards.size() == 0) {
-          won = true;
-          PlaySound(am.won);
-        } else {
-          PlaySound(am.right);
-        }
-      } else {
-        UnflipCards(flippedIndices);
-        PlaySound(am.wrong);
+      if (flippedIndices.size() < MATCHING_AMOUNT) {
+        PlaySound(am.flip);
+        return;
       }
+
+      if (CheckFlippedCards(flippedIndices)) {
+        HandleCardMatch(flippedIndices);
+      } else {
+        HandleCardMismatch(flippedIndices);
+      }
+
+      break;
     }
   }
+}
+
+void MemoryMatchingGame::HandleCardMatch(
+    const std::vector<int> &flippedIndices) {
+  DeleteFlippedCards(flippedIndices);
+  if (cards.empty()) {
+    won = true;
+    PlaySound(am.won);
+  } else {
+    PlaySound(am.right);
+  }
+}
+
+void MemoryMatchingGame::HandleCardMismatch(
+    const std::vector<int> &flippedIndices) {
+  pendingUnflipIndices = flippedIndices;
+  unflipTimer = WAIT_TO_HIDE_CARDS_TIME;
+  isWaitingToUnflip = true;
+  PlaySound(am.wrong);
 }
 
 void MemoryMatchingGame::HandleWon() {
@@ -172,25 +229,24 @@ void MemoryMatchingGame::DrawLost() {
 
 std::vector<int> MemoryMatchingGame::GetFlippedCards() {
   std::vector<int> res;
-
   for (size_t i = 0; i < cards.size(); ++i) {
-    if (cards[i].GetFlipped()) {
+    if (cards[i]->GetFlipped()) {
       res.push_back(i);
     }
   }
-
   return res;
 }
 
 void MemoryMatchingGame::DeleteFlippedCards(std::vector<int> flippedIndices) {
   for (size_t i = 0; i < flippedIndices.size(); ++i) {
+    delete cards[flippedIndices[i]];
     cards.erase(cards.begin() + flippedIndices[i]);
   }
 }
 
 void MemoryMatchingGame::UnflipCards(std::vector<int> flippedIndices) {
   for (size_t i = 0; i < flippedIndices.size(); ++i) {
-    cards[flippedIndices[i]].Flip();
+    cards[flippedIndices[i]]->Flip();
   }
 }
 
@@ -200,4 +256,40 @@ void MemoryMatchingGame::HandleTimers() {
     lost = true;
     PlaySound(am.lost);
   }
+}
+
+bool MemoryMatchingGame::CheckFlippedCards(std::vector<int> flippedIndices) {
+  for (size_t i = 1; i < flippedIndices.size(); ++i) {
+    if (cards[flippedIndices[i - 1]]->GetCardType() !=
+        cards[flippedIndices[i]]->GetCardType()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+CardType MemoryMatchingGame::GetRandomCardType() {
+  while (true) {
+    CardType ct = static_cast<CardType>(GetRandomValue(0, CARD_AMOUNT - 1));
+    if (CountCardType(ct) < MATCHING_AMOUNT) {
+      return ct;
+    }
+  }
+}
+
+int MemoryMatchingGame::CountCardType(CardType ct) {
+  int res = 0;
+  for (size_t i = 0; i < cards.size(); ++i) {
+    if (cards[i]->GetCardType() == ct) {
+      res++;
+    }
+  }
+  return res;
+}
+
+void MemoryMatchingGame::DeleteCards() {
+  for (size_t i = 0; i < cards.size(); ++i) {
+    delete cards[i];
+  }
+  cards.clear();
 }

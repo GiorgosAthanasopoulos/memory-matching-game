@@ -12,19 +12,20 @@ Card::Card(Vector2 pos, CardType ct) {
 }
 
 void Card::Resize(Vector2 old, Vector2 neew) {
-  size = CalculateSize(CARD_SIZE_TO_WIN_SIZE_PER);
+  size = CalculateSize({CARD_SIZE_RATIO_X, CARD_SIZE_RATIO_Y});
   pos = MaintainPosAfterResize(old, neew, pos);
 }
 
 void Card::Update() {}
 
 void Card::Draw(Texture2D tex) {
-  if (!flipped) {
-    DrawRectangleRec(GetRec(), CARD_FLIPPED_COLOR);
-  } else {
+  if (flipped) {
     DrawTexturePro(tex, {0, 0, (float)tex.width, (float)tex.height}, GetRec(),
                    {0, 0}, 0, WHITE);
+    return;
   }
+  DrawRectangleRec(GetRec(), CARD_FLIPPED_COLOR);
+  DrawPoly(pos + (size / 2), 4, size.x / 4, 0, CARD_FLIPPED_DIAMOND_COLOR);
 }
 
 Card::~Card() {}

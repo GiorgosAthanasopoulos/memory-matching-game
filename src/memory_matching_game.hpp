@@ -17,10 +17,14 @@ public:
 
 private:
   Vector2 winSize;
-  std::vector<Card> cards;
+  std::vector<Card *> cards;
   AssetManager am;
   bool paused, won, lost;
   float gameTimer;
+
+  std::vector<int> pendingUnflipIndices;
+  float unflipTimer;
+  bool isWaitingToUnflip;
 
   void Restart();
   Texture2D GetTextureFromCardType(CardType ct);
@@ -28,6 +32,9 @@ private:
   bool CheckFlippedCards(std::vector<int> flippedIndices);
   void DeleteFlippedCards(std::vector<int> flippedIndices);
   void UnflipCards(std::vector<int> flippedIndices);
+  CardType GetRandomCardType();
+  int CountCardType(CardType ct);
+  void DeleteCards();
 
   void HandleMusic();
   void HandlePaused();
@@ -35,6 +42,8 @@ private:
   void HandleWon();
   void HandleLost();
   void HandleTimers();
+  void HandleCardMatch(const std::vector<int> &flippedIndices);
+  void HandleCardMismatch(const std::vector<int> &flippedIndices);
 
   void DrawPaused();
   void DrawWon();

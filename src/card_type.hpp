@@ -1,3 +1,3 @@
 #pragma once
 
-enum CardType { A = 1, B, C, D, E, F, G };
+enum CardType { A = 0, B, C, D, E, F, G };

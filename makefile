@@ -9,7 +9,7 @@ LANG=cpp
 SRC=$(wildcard $(SRC_DIR)/*.$(LANG))
 
 CC=g++
-CFLAGS=-Wall -Wextra -pedantic -std=c++23
+CFLAGS=-Wall -Wextra -pedantic -std=c++23 -g
 LDFLAGS=-lraylib
 
 bin_dir:

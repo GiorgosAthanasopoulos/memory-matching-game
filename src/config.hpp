@@ -25,13 +25,15 @@
 #define DEBUG true
 
 // card//deck
-const Vector2 DECK_AMOUNT_AXIS = {9, 3};
-const Vector2 DECK_PADDING_AXIS_PER = {10, 10};
-const Vector2 CARD_SIZE_TO_WIN_SIZE_PER = {
-    (100 - DECK_PADDING_AXIS_PER.x) / DECK_AMOUNT_AXIS.x,
-    (100 - DECK_PADDING_AXIS_PER.y) / DECK_AMOUNT_AXIS.y};
 #define CARD_AMOUNT 7
+#define MATCHING_AMOUNT 3
+#define DECK_SIZE_X CARD_AMOUNT
+#define DECK_SIZE_Y MATCHING_AMOUNT
+#define CARD_SIZE_RATIO_X 10
+#define CARD_SIZE_RATIO_Y 4
 #define CARD_FLIPPED_COLOR BLACK
+#define CARD_FLIPPED_DIAMOND_COLOR WHITE
+#define TOTAL_CARDS DECK_SIZE_X *DECK_SIZE_Y
 
 // assets
 #define ASSETS "assets/"
@@ -61,10 +63,11 @@ const Vector2 CURSOR_SIZE = {32, 32};
 #define SOUND_VOLUME 1.0f
 
 // game
-#define MATCHING_AMOUNT                                                        \
-  3 // same amount of cards on each deck that you need to find
 #define GAME_TIME 60
+#define WAIT_TO_HIDE_CARDS_TIME 1.5f
 
 // ui
 #define FONT_SIZE 1000
 #define UI_TEXT_COLOR WHITE
+#define TIMER_H 20
+#define TIMER_COLOR WHITE
