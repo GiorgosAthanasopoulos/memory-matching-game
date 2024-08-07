@@ -241,6 +241,9 @@ void MemoryMatchingGame::DeleteFlippedCards(std::vector<int> flippedIndices) {
   for (size_t i = 0; i < flippedIndices.size(); ++i) {
     delete cards[flippedIndices[i]];
     cards.erase(cards.begin() + flippedIndices[i]);
+    for (size_t j = 0; j < flippedIndices.size(); ++j) {
+      flippedIndices[j]--;
+    }
   }
 }
 
